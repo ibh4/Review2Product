@@ -19,9 +19,8 @@
   <img alt="PainPoints" src="https://img.shields.io/badge/PainPoints-5·可解释评分-0EA5E9?style=flat-square">
   <img alt="V2 Parameters" src="https://img.shields.io/badge/V2%20Parameters-10%20项-F59E0B?style=flat-square">
   <img alt="Evidence" src="https://img.shields.io/badge/Evidence-12条%2F结论-EF4444?style=flat-square">
-  <img alt="Tests" src="https://img.shields.io/badge/Tests-25%20passed-22C55E?style=flat-square">
-  <img alt="Cost" src="https://img.shields.io/badge/依赖成本-0%20元·纯CPU-64748B?style=flat-square">
 </p>
+<img width="1672" height="941" alt="ChatGPT Image 2026年9月4日 10_28_32" src="https://github.com/user-attachments/assets/4bc24d95-d892-4721-a32e-e8544cafcd89" />
 
 ---
 
