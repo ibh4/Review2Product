@@ -66,75 +66,47 @@ Agent 决策层由**阿里云百炼 qwen3.8max** 驱动，完整覆盖「数据�
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"fontFamily": "Inter, Microsoft YaHei, sans-serif", "background": "#FFFFFF", "primaryColor": "#F8FAFC", "primaryTextColor": "#1E293B", "primaryBorderColor": "#CBD5E1", "lineColor": "#94A3B8"}}}%%
 flowchart LR
-    SRC(["Amazon Reviews 2023<br/>公开评论数据源"]):::input
+    A(["评论数据源<br/>Amazon Reviews 2023"]):::input
+    B["数据爬取与蒸馏<br/>清洗/去重/负面筛选<br/>19,210 → 18,167"]:::data
+    C["构建模型<br/>TF-IDF+KMeans 聚类<br/>PainScore 可解释评分"]:::engine
+    D["证据引擎<br/>每结论 12 条原始评论"]:::store
+    E["qwen3.8max Agent<br/>根因 / 工程参数 / Listing"]:::agent
+    F(["FastAPI + React<br/>五大页面交付"]):::output
 
-    subgraph DATA["数据层 · 爬取与蒸馏"]
-        DL["downloader.py<br/>镜像流式爬取<br/>四级降级"]:::data
-        PP["preprocess.py<br/>去重/语言检测/负面筛选<br/>19,210 → 18,167"]:::data
-        DB[("Parquet + DuckDB<br/>25 商品 · 4,696 负面")]:::store
-    end
-
-    subgraph ENGINE["分析引擎层 · 构建模型"]
-        CL["TF-IDF + KMeans<br/>痛点聚类模型"]:::engine
-        PS["PainScore<br/>Freq × Sev × Help × Recency<br/>可解释评分 0-100"]:::engine
-        EV["Evidence Engine<br/>每结论 12 条证据评论"]:::engine
-    end
-
-    subgraph AGENT["Agent 决策层 · qwen3.8max"]
-        RC["Root Cause Agent<br/>根因/场景/人群"]:::agent
-        PE["Product Engineer Agent<br/>痛点 → 工程参数"]:::agent
-        LA["Listing Agent<br/>卖点/标题/FAQ/主图"]:::agent
-    end
-
-    subgraph SERVE["服务与可视化层"]
-        API["FastAPI<br/>10+ REST 端点"]:::serve
-        UI["React + ECharts<br/>五大页面 Dashboard"]:::serve
-    end
-
-    SRC --> DL --> PP --> DB --> CL --> PS --> EV --> RC --> PE --> LA --> API --> UI
+    A --> B --> C --> D --> E --> F
 
     classDef input fill:#FDBA74,stroke:#FFEDD5,color:#7C2D12,stroke-width:2px;
     classDef data fill:#93C5FD,stroke:#DBEAFE,color:#1E3A8A,stroke-width:2px;
-    classDef store fill:#FDE68A,stroke:#FEF3C7,color:#78350F,stroke-width:2px;
     classDef engine fill:#5EEAD4,stroke:#CCFBF1,color:#134E4A,stroke-width:2px;
+    classDef store fill:#FDE68A,stroke:#FEF3C7,color:#78350F,stroke-width:2px;
     classDef agent fill:#C4B5FD,stroke:#EDE9FE,color:#4C1D95,stroke-width:2px;
-    classDef serve fill:#86EFAC,stroke:#DCFCE7,color:#14532D,stroke-width:2px;
+    classDef output fill:#86EFAC,stroke:#DCFCE7,color:#14532D,stroke-width:2px;
 ```
 
 **确定性优先的设计原则**：PainScore 由四因子公式确定性计算（LLM 无权干预，同数据同结果）；qwen3.8max 负责根因推理与文案生成的语义部分，所有输出经 Pydantic 结构化校验，并强制携带证据评论 ID。
 
 ---
 
-## 3. Agent 工作流：七步工具链 + 反幻觉验证
+## 3. Agent 工作流：推理链路 + 反幻觉验证
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"fontFamily": "Inter, Microsoft YaHei, sans-serif", "background": "#FFFFFF", "primaryColor": "#F8FAFC", "primaryTextColor": "#1E293B", "primaryBorderColor": "#CBD5E1", "lineColor": "#94A3B8"}}}%%
 flowchart LR
-    IN(["痛点簇 + 代表评论<br/>+ 商品元数据"]):::input
+    A(["痛点簇 + 代表评论"]):::input
+    B["① 痛点发现<br/>TF-IDF + KMeans"]:::step
+    C["② 根因推理<br/>Root Cause Agent"]:::step
+    D["③ 工程映射<br/>Product V2"]:::step
+    E["④ 验证 Gate<br/>Evidence / Confidence"]:::gate
+    F(["⑤ 上架素材<br/>Listing + 三态决策"]):::output
+    G["qwen3.8max<br/>结构化输出"]:::llm
 
-    subgraph LOOP["Agentic Loop · 七步工具链"]
-        T1["① 数据读取<br/>DuckDB"]:::step
-        T2["② 痛点发现<br/>TF-IDF + KMeans"]:::step
-        T3["③ Evidence 验证<br/>Evidence Retriever"]:::step
-        T4["④ 根因推理<br/>Root Cause Agent"]:::step
-        T5["⑤ 工程映射<br/>Product Engineer Agent"]:::step
-        T6["⑥ 验证 Gate<br/>Evidence / Confidence"]:::gate
-        T7["⑦ Launch 生成<br/>Listing Agent"]:::step
-    end
-
-    LLM["qwen3.8max<br/>阿里云百炼<br/>JSON 结构化输出"]:::llm
-    EVS[("Evidence Store<br/>evidence_review_ids")]:::store
-    OUT(["Product V2 参数表 + Listing 素材<br/>Human-in-the-loop 三态决策"]):::output
-
-    IN --> T1 --> T2 --> T3 --> T4 --> T5 --> T6 --> T7 --> OUT
-    LLM -.增强.-> T4 & T5 & T7
-    EVS -.证据 ID 全程携带.-> T3 & T5 & T7
+    A --> B --> C --> D --> E --> F
+    G -.增强.-> C & D & F
 
     classDef input fill:#FDBA74,stroke:#FFEDD5,color:#7C2D12,stroke-width:2px;
     classDef step fill:#93C5FD,stroke:#DBEAFE,color:#1E3A8A,stroke-width:2px;
     classDef gate fill:#FCA5A5,stroke:#FEE2E2,color:#7F1D1D,stroke-width:2px;
     classDef llm fill:#C4B5FD,stroke:#EDE9FE,color:#4C1D95,stroke-width:3px;
-    classDef store fill:#FDE68A,stroke:#FEF3C7,color:#78350F,stroke-width:2px;
     classDef output fill:#86EFAC,stroke:#DCFCE7,color:#14532D,stroke-width:3px;
 ```
 
